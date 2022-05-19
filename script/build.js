@@ -29,15 +29,7 @@ const envs = [
   },
 ];
 
-const sharePlugins = [
-  'ab',
-  'monitor',
-  'compensate',
-  'robot',
-  'trace',
-  'utm',
-  'verify',
-];
+const sharePlugins = ['ab', 'compensate', 'robot', 'trace', 'utm', 'verify'];
 
 const selfPlugins = ['auto', 'extend'];
 

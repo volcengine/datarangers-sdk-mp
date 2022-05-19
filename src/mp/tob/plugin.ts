@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import Sdk from '../../core/sdk';
 import Info from '../../plugin/info';
 import Token from '../../plugin/token';

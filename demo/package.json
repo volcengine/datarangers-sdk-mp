@@ -9,7 +9,5 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@datarangers/sdk-mp": "^2.1.2"
-  }
+  "dependencies": {}
 }

@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 export const isObject = (obj: any) =>
   obj != null && Object.prototype.toString.call(obj) == '[object Object]';
 

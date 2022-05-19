@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 export type THookInfo = any;
 export type THook = (hookInfo?: THookInfo) => void;
 export interface IHooks {

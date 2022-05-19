@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import Sdk from './plugin';
 import log from '../adapter/my/log';
 import request from '../adapter/my/request';

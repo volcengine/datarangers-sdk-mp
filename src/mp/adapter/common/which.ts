@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 declare const wx;
 declare const tt;
 declare const my;

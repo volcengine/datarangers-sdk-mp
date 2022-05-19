@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import {
   REPORT_CHANNEL,
   AUTO_REPORT,

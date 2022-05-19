@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 export const undef = undefined;
 
 export const REPORT_CHANNEL = 'cn';

@@ -1,14 +1,23 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../tool/time';
 import { isObject } from '../tool/is';
 import { safeDecodeURIComponent, unserializeUrl } from '../tool/safe';
 import type Sdk from '../core/sdk';
 import type { TOption } from '../core/option';
 
+enum UtmStatus {
+  Undefined = 0,
+  Start = 1,
+  End = 2,
+}
+
 class Utm {
   static pluginName: string = 'official:utm';
   sdk: Sdk;
   options: TOption;
   key: string = `utm`;
+  utmed: UtmStatus = UtmStatus.Undefined;
+  reload: boolean = false;
   apply(sdk: Sdk, options: TOption) {
     this.sdk = sdk;
     this.options = options;
@@ -16,8 +25,19 @@ class Utm {
     const { types } = this.sdk;
 
     this.sdk.on(types.LaunchInfo, (info) => {
+      if (this.utmed === UtmStatus.Start) {
+        return;
+      }
+      if (this.utmed === UtmStatus.End) {
+        this.reload = true;
+      }
+      this.utmed = UtmStatus.Start;
       this.parseDefault(info?.query ?? {});
       this.parseMore(info?.query ?? {});
+    });
+
+    this.sdk.on(types.AppHide, () => {
+      this.utmed = UtmStatus.End;
     });
   }
 
@@ -53,21 +73,31 @@ class Utm {
       this.dispatch();
       return;
     }
+    const callback = () => {
+      if (this.reload) {
+        this.sdk.emit(this.sdk.types.CancelPause);
+      } else {
+        this.dispatch();
+      }
+    };
+    if (this.reload) {
+      this.sdk.emit(this.sdk.types.Pause);
+    }
     this.storageGet(trToken)
       .then((cacheToken) => {
         if (cacheToken) {
           this.sdk.env.set(cacheToken.utms || {});
-          this.dispatch();
+          callback();
         } else {
           this.fetch(trToken)
-            .then(() => this.dispatch())
-            .catch(() => this.dispatch());
+            .then(() => callback())
+            .catch(() => callback());
         }
       })
       .catch(() => {
         this.fetch(trToken)
-          .then(() => this.dispatch())
-          .catch(() => this.dispatch());
+          .then(() => callback())
+          .catch(() => callback());
       });
   }
 

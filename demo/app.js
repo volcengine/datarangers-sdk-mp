@@ -1,8 +1,9 @@
 // app.js
 
+// 请先执行npm install @datarangers/sdk-mp
 import $$sdk from '@datarangers/sdk-mp';
 $$sdk.init({
-  app_id: 1338,
+  app_id: 0000, //替换成申请的id
   log: true,
   auto_report: true,
 });

@@ -1,17 +1,18 @@
 {
   "name": "@datarangers/sdk-mp",
   "version": "{VERSION}",
+  "license": "MIT",
   "main": "index.umd.js",
   "module": "index.js",
   "types": "index.d.ts",
   "files": [
-    "esm", 
-    "umd", 
+    "esm",
+    "umd",
     "index.js",
-    "index.d.ts", 
+    "index.d.ts",
     "index.umd.js",
-    "index.umd.d.ts", 
-    "sdk.d.ts", 
+    "index.umd.d.ts",
+    "sdk.d.ts",
     "README.md"
   ],
   "miniprogram": "."

@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 enum Types {
   Init = '$init',
   Config = '$config',
@@ -32,6 +33,8 @@ enum Types {
   SubmitError = '$submit-error',
   FilterCrawler = '$filter-crawler',
   LaunchInfo = '$launch-info',
+  Pause = '$pause',
+  CancelPause = '$cancel-pause',
 
   AbVar = '$ab-var',
   AbAllVars = '$ab-all-vars',

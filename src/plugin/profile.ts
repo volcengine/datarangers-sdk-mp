@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../tool/time';
 import { isObject, isArray, isNumber, isString } from '../tool/is';
 import type Sdk from '../core/sdk';

@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 export const encrypto = (salt) => {
   const textToChars = (text) => text.split('').map((c) => c.charCodeAt(0));
   const byteHex = (n) => ('0' + Number(n).toString(16)).substr(-2);

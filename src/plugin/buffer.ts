@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import type Sdk from '../core/sdk';
 import type { TEvent, TEventData } from '../core/sdk';
 import type { TOption } from '../core/option';

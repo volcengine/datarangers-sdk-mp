@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { undef } from './constant';
 import { isObject } from '../tool/is';
 import { now } from '../tool/time';
@@ -34,6 +35,7 @@ class Env {
         user_is_login: undef,
         ip_addr_id: undef,
         device_id: undef,
+        user_unique_id_type: undef,
       },
       header: {
         app_id: undef,
@@ -152,7 +154,9 @@ class Env {
             this.env.user[localKey] = String(localValue);
           } else if (['user_is_auth', 'user_is_login'].indexOf(localKey) > -1) {
             this.env.user[localKey] = Boolean(localValue);
-          } else if (['device_id'].indexOf(localKey) > -1) {
+          } /* else if (['device_id'].indexOf(localKey) > -1) {
+            this.env.user[localKey] = localValue;
+          }*/ else {
             this.env.user[localKey] = localValue;
           }
         } else if (this.env.header.hasOwnProperty(localKey)) {

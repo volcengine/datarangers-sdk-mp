@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { timezone } from '../tool/time';
 import type Sdk from '../core/sdk';
 import type { TOption } from '../core/option';
@@ -18,6 +19,13 @@ class Transform {
     });
 
     this.sdk.on(types.ConfigTransform, (configs) => {
+      if (typeof configs.user_unique_id_type !== 'undefined') {
+        configs.evtParams = {
+          ...(configs.evtParams || {}),
+          $user_unique_id_type: configs.user_unique_id_type,
+        };
+      }
+
       if (typeof configs.gender !== 'undefined') {
         if ([1, 2, '1', '2'].includes(configs.gender)) {
           configs.gender = configs.gender < 2 ? 'male' : 'female';

@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 export const now = () => +new Date();
 
 export const timezone = (): { timezone: number; offset: number } => {

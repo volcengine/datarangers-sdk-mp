@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import type Sdk from '../core/sdk';
 import type { TEventData } from '../core/sdk';
 import type { TOption } from '../core/option';
@@ -10,6 +11,7 @@ class Report {
   key: string;
   cache: TEventData[] = [];
   reportUrl: string;
+  pause: boolean = false;
   apply(sdk: Sdk, options: TOption) {
     this.sdk = sdk;
     this.options = options;
@@ -22,7 +24,7 @@ class Report {
       if (!Array.isArray(event)) {
         event = [event];
       }
-      if (!this.sdk.ready) {
+      if (!this.sdk.ready || this.pause) {
         event.forEach((each) => this.cache.push(each));
         return;
       }
@@ -30,10 +32,16 @@ class Report {
     });
 
     this.sdk.on(types.Ready, () => {
-      if (this.cache.length > 0) {
-        this.report([...this.cache]);
-        this.cache.length = 0;
-      }
+      this.reportCache();
+    });
+
+    this.sdk.on(types.Pause, () => {
+      this.pause = true;
+    });
+
+    this.sdk.on(types.CancelPause, () => {
+      this.pause = false;
+      this.reportCache();
     });
 
     const { adapter } = this.sdk;
@@ -46,6 +54,13 @@ class Report {
         this.cache.length = 0;
       }
     });
+  }
+
+  reportCache() {
+    if (this.cache.length > 0) {
+      this.report([...this.cache]);
+      this.cache.length = 0;
+    }
   }
 
   report(eventDatas: TEventData[]) {

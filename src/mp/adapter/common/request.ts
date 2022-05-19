@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import request from '../request';
 import { getWhich } from './which';
 import type Sdk from '../../../core/sdk';

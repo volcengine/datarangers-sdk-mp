@@ -1,3 +1,10 @@
+# Build SDK
+
+```javascript
+npm install
+npm run build
+```
+
 # `DataRangers SDK - mp`
 
 ## Sample
@@ -8,13 +15,13 @@
 const $$SDK = require('@datarangers/sdk-mp');
 
 $$SDK.init({
-  app_id: 1234, // Replace it with the "APP_ID"
+  app_id: 0000, // Replace it with the "APP_ID"
   auto_report: true,
   log: true, // Whether to print the log
 });
 
 $$SDK.config({
-  username: 'xxx',
+  xxx: 'abc',
 });
 
 $$SDK.send(); // Setup complete and now events can be sent.

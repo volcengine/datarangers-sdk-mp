@@ -1,10 +1,9 @@
 {
   "name": "@datarangers/sdk-mp",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "scripts": {
     "build": "rm -rf dist/tob/mp && node --max-old-space-size=16384 ./script/build.js -e=tob -t=mp"
   },
-  "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.15.0",
     "@babel/preset-env": "^7.15.0",

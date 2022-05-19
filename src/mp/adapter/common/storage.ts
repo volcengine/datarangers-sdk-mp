@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import CommonStorage from '../storage';
 import { getWhich } from './which';
 

@@ -1,3 +1,4 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../../tool/time';
 import { isObject } from '../../tool/is';
 import { safeDecodeURIComponent, unserializeUrl } from '../../tool/safe';
@@ -302,11 +303,15 @@ abstract class Auto {
     }
 
     this.sdk.on(types.AppShow, (info) => {
+      this.appShowPrefix(info);
       this.open && this.autoConfig.appLaunch && this.appShow(info);
     });
 
-    if (this.open && this.autoConfig.appLaunch && this.missAppShow) {
-      this.appShow(this.missAppShowInfo);
+    if (this.missAppShow) {
+      this.appShowPrefix(this.missAppShowInfo);
+      this.open &&
+        this.autoConfig.appLaunch &&
+        this.appShow(this.missAppShowInfo);
     }
 
     this.sdk.on(types.AppHide, () => {
@@ -505,6 +510,12 @@ abstract class Auto {
       this.sdk.emit(this.sdk.types.LaunchInfo, this.appInfo);
     } else {
       this.sdk.emit(this.sdk.types.LaunchComplete);
+    }
+  }
+
+  appShowPrefix(info?: any) {
+    if (this.sdk.checkUsePlugin('official:utm')) {
+      this.sdk.emit(this.sdk.types.LaunchInfo, info);
     }
   }
 

@@ -1,8 +1,10 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { isObject, isFunction } from '../tool/is';
 import type Sdk from './sdk';
 
 export interface AdapterLog {
   log: (...args: any[]) => void;
+  warn?: (...args: any[]) => void;
 }
 
 export interface AdapterRequest {

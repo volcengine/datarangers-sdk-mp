@@ -1,10 +1,11 @@
+// Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import Env from './env';
 import Option from './option';
 import Hook from './hook';
 import Adapter from './adapter';
 import Types from './type';
 import { EventType, ProfileType, UtmType } from './constant';
-import { isObject, isNumber } from '../tool/is';
+import { isObject, isNumber, isString } from '../tool/is';
 import uuid from '../tool/uuid';
 import { now } from '../tool/time';
 import type { TEnv } from './env';
@@ -253,6 +254,7 @@ class Sdk {
       return;
     }
     this.emit(Types.Config, configs);
+    this.emit(Types.ConfigTransform, configs);
     const {
       web_id: webId,
       user_unique_id: userUniqueId,
@@ -264,6 +266,20 @@ class Sdk {
     if (userUniqueId !== undefined) {
       this.emit(Types.ConfigUuid, userUniqueId);
     }
+
+    isObject(otherConfigs) &&
+      Object.keys(otherConfigs).forEach((header) => {
+        if (header === 'evtParams') {
+          const { evtParams } = otherConfigs;
+          isObject(evtParams) &&
+            Object.keys(evtParams).forEach((evtParam) => {
+              this._checkSet('header', evtParam, evtParams[evtParam]);
+            });
+        } else {
+          this._checkSet('header', header, otherConfigs[header]);
+        }
+      });
+
     this.env.set(otherConfigs);
   }
 
@@ -345,6 +361,20 @@ class Sdk {
       local_time_ms: info.time || now(),
       ...(this.sessionId ? { session_id: this.sessionId } : {}),
     };
+
+    const isProfile = event.event?.indexOf('__profile_') === 0;
+    if (!isProfile) {
+      this._checkSet('name', event.event);
+    }
+    isObject(event.params) &&
+      Object.keys(event.params).forEach((param) => {
+        this._checkSet(
+          isProfile ? 'profile' : 'param',
+          param,
+          event.params[param],
+        );
+      });
+
     if (!ab) {
       return event;
     }
@@ -446,6 +476,53 @@ class Sdk {
     if (stashs.length > 0) {
       this.event(stashs);
       this.set(key, []);
+    }
+  }
+
+  _checkSet(type: string, key: any, val?: any) {
+    const keyCheck = (val: string): boolean => {
+      return /^[a-zA-Z0-9][a-z0-9A-Z_ .-]{0,255}$/.test(val);
+    };
+    const valCheck = (val: any): boolean => {
+      return String(val).length <= 1024;
+    };
+    switch (type) {
+      case 'name':
+        if (!keyCheck(String(key))) {
+          Sdk._log?.warn?.(`event name ${key} illegal`);
+        }
+        break;
+      case 'param':
+      case 'header':
+      case 'profile': {
+        const text =
+          type === 'param'
+            ? 'event params'
+            : type === 'header'
+            ? 'config'
+            : 'profile';
+        if (
+          (key === 'profile' ||
+            ![
+              '$inactive',
+              '$inline',
+              '$target_uuid_list',
+              '$source_uuid',
+              '$is_spider',
+              '$source_id',
+              '$is_first_time',
+            ].includes(key)) &&
+          !keyCheck(String(key))
+        ) {
+          Sdk._log?.warn?.(`${text} name ${key} illegal`);
+        }
+        if (typeof val === 'string' && !valCheck(val)) {
+          Sdk._log?.warn?.(
+            `the value ${val} length more than 1024 in ${text} ${key}`,
+          );
+        }
+        break;
+      }
     }
   }
 
