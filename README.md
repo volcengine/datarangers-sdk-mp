@@ -1,17 +1,23 @@
-# Build SDK
+English | [简体中文](./README.zh-CN.md)
+
+# `DataRangers SDK - mp`
+
+## Build SDK
 
 ```javascript
 npm install
 npm run build
 ```
 
-# `DataRangers SDK - mp`
-
 ## Sample
 
 ### 1. Initialize the SDK in app.js
 
 ```javascript
+// locally built references
+// const $$SDK = require('dist/tob/mp');
+
+// online package references
 const $$SDK = require('@datarangers/sdk-mp');
 
 $$SDK.init({
