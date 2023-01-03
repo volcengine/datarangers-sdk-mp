@@ -2,6 +2,7 @@
 import type Sdk from '../core/sdk';
 import type { TEvent } from '../core/sdk';
 import type { TOption } from '../core/option';
+import { now } from '../tool/time';
 
 const TraceName = `applog_trace`;
 
@@ -42,7 +43,9 @@ interface Parse {
   state: State;
 }
 
-type Cache = Map<Key, Map<State, Prama>>;
+// type Cache = Map<Key, Map<State, Prama>>;
+type Item = Record<State, Prama>;
+type Cache = Record<Key, Item>;
 
 class Trace {
   static pluginName: string = 'official:trace';
@@ -59,12 +62,12 @@ class Trace {
     this.options = options;
 
     this.aid = this.sdk.appId;
-    this.isAuto = this.options.auto_report;
+    this.isAuto = !!this.options.auto_report;
     this.isPrivate = !!this.options.channel_domain;
 
     const { types } = this.sdk;
     this.sdk.on(types.SubmitBefore, (data) => {
-      if (this.isPrivate) {
+      if (this.isSkip()) {
         return;
       }
       if (this.isTest()) {
@@ -77,7 +80,7 @@ class Trace {
     });
 
     this.sdk.on(types.SubmitAfter, (data) => {
-      if (this.isPrivate) {
+      if (this.isSkip()) {
         return;
       }
       if (this.isTest()) {
@@ -141,7 +144,7 @@ class Trace {
   private collect(item: Parse, num: number = 1) {
     const { key, state } = item;
     if (!this.cache) {
-      this.cache = new Map();
+      this.cache = {} as Cache;
     }
     const { cache } = this;
     const createPrama = (num: number = 1): Prama => ({
@@ -154,16 +157,16 @@ class Trace {
       _staging_flag: 1,
     });
     let currentCount = num;
-    if (!cache.has(key)) {
-      const stateMap = new Map<State, Prama>();
-      stateMap.set(state, createPrama(num));
-      cache.set(key, stateMap);
+    if (!cache[key]) {
+      const stateMap = {} as Item;
+      stateMap[state] = createPrama(num);
+      cache[key] = stateMap;
     } else {
-      const stateMap = cache.get(key);
-      if (!stateMap.has(state)) {
-        stateMap.set(state, createPrama(num));
+      const stateMap = cache[key];
+      if (!stateMap[state]) {
+        stateMap[state] = createPrama(num);
       } else {
-        const whichState = stateMap.get(state);
+        const whichState = stateMap[state];
         whichState.count += num;
         currentCount = whichState.count;
       }
@@ -178,17 +181,21 @@ class Trace {
       return;
     }
     const events: TEvent[] = [];
-    cache.forEach((stateMap) => {
-      stateMap.forEach((prama) => {
-        if (!prama.aid) {
-          prama.aid = this.aid;
-        }
-        const event = this.sdk.createEvent({
-          event: TraceName,
-          params: prama,
+    Object.keys(cache).forEach((key) => {
+      const stateMap = cache[key];
+      if (stateMap) {
+        Object.keys(stateMap).forEach((kk) => {
+          const prama = stateMap[kk];
+          if (!prama.aid) {
+            prama.aid = this.aid;
+          }
+          const event = this.sdk.createEvent({
+            event: TraceName,
+            params: prama,
+          });
+          events.push(event);
         });
-        events.push(event);
-      });
+      }
     });
     if (events.length > 0) {
       this.sdk.event(events);
@@ -219,7 +226,7 @@ class Trace {
   }
 
   private commit() {
-    if (this.isPrivate) {
+    if (this.isSkip()) {
       return;
     }
     if (this.isTest()) {
@@ -228,6 +235,10 @@ class Trace {
     const cache = this.cache;
     this.cache = null;
     this.report(cache);
+  }
+
+  private isSkip() {
+    return this.isPrivate;
   }
 
   private isTest(event?: any): boolean {

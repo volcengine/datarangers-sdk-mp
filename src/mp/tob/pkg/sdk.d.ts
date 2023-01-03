@@ -69,13 +69,15 @@ export interface PluginConstructor {
 type Channel = 'cn' | 'va' | 'sg';
 
 type AutoConfig = {
-  appLaunch: boolean;
-  appTerminate: boolean;
-  appError: boolean;
-  pageShow: boolean;
-  pageHide: boolean;
-  pageShare: boolean;
-  pageFavorite: boolean;
+  appLaunch?: boolean;
+  appTerminate?: boolean;
+  appError?: boolean;
+  pageShow?: boolean;
+  pageHide?: boolean;
+  pageShare?: boolean;
+  pageFavorite?: boolean;
+  click?: boolean;
+  catchError?: boolean;
 };
 interface InitParams {
   app_id: number;
@@ -113,8 +115,20 @@ interface InitParams {
   max_batch_event?: number;
   max_storage_num?: number;
   enable_storage_only?: boolean;
+  enable_cache?: boolean;
 
   disable_sdk_monitor?: boolean;
+
+  verify?: string[] | null;
+
+  enable_encrypt?: boolean;
+  enable_skip_launch?: boolean;
+  enable_skip_network?: boolean;
+  enable_retry_unready?: boolean;
+  enable_trace?: boolean;
+  request_webid_number?: number;
+  disable_check?: boolean;
+  disable_verify?: boolean;
 }
 
 interface ConfigParams {
@@ -204,10 +218,15 @@ interface Sdk {
   predefinePageviewHide(): void;
   shareAppMessage(info: any): any;
 
+  setWebId(id: string | number): void;
   setWebIDviaUnionID(unionId: string): void;
   setWebIDviaOpenID(openId: string): void;
   createWebViewUrl(url: string): string;
   createWebViewUrlAsync(url: string): Promise<string>;
+
+  setUserUniqueID(uuid: string | number | null): void;
+  setHeaderInfo(key: string, value: any): void;
+  removeHeaderInfo(key: string): void;
 }
 
 interface Env {

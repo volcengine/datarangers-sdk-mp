@@ -1,6 +1,5 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { undef } from './constant';
-import { isObject } from '../tool/is';
 import { now } from '../tool/time';
 import type Sdk from './sdk';
 import type { TEventData } from './sdk';
@@ -105,6 +104,9 @@ class Env {
         // 支持自定义webid
         wechat_openid: undef,
         wechat_unionid: undef,
+
+        // 网络
+        is_connected: undef,
       },
     };
   }
@@ -220,7 +222,7 @@ class Env {
   }
 
   private clone(obj: object) {
-    if (isObject(obj)) {
+    if (this.sdk.isObject(obj)) {
       return JSON.parse(JSON.stringify(obj));
     }
     return obj;

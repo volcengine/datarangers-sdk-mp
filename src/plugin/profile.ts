@@ -1,6 +1,5 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../tool/time';
-import { isObject, isArray, isNumber, isString } from '../tool/is';
 import type Sdk from '../core/sdk';
 import type { TEvent } from '../core/sdk';
 import type { ProfileParams, ProfileIncrementParams } from '../core/sdk';
@@ -16,6 +15,25 @@ class Profile {
   duration: number = 60 * 1000;
   cache: Record<string, any> = {};
   buffer: any[] = [];
+
+  static init(Sdk) {
+    Sdk.prototype.profileSet = function (params: ProfileParams) {
+      this.emit(this.types.ProfileSet, params);
+    };
+    Sdk.prototype.profileSetOnce = function (params: ProfileParams) {
+      this.emit(this.types.ProfileSetOnce, params);
+    };
+    Sdk.prototype.profileUnset = function (key: string) {
+      this.emit(this.types.ProfileUnset, key);
+    };
+    Sdk.prototype.profileIncrement = function (params: ProfileIncrementParams) {
+      this.emit(this.types.ProfileIncrement, params);
+    };
+    Sdk.prototype.profileAppend = function (params: ProfileParams) {
+      this.emit(this.types.ProfileAppend, params);
+    };
+  }
+
   apply(sdk: Sdk, options: TOption) {
     this.sdk = sdk;
     this.options = options;
@@ -60,7 +78,9 @@ class Profile {
     this.putCache(result);
     const filterResult = this.filter(result, (value) => {
       return (
-        this.isString(value) || this.isNumber(value) || this.isArray(value)
+        this.sdk.isString(value) ||
+        this.sdk.isNumber(value) ||
+        this.sdk.isArray(value)
       );
     });
     this.report(
@@ -79,7 +99,9 @@ class Profile {
     this.putCache(result);
     const filterResult = this.filter(result, (value) => {
       return (
-        this.isString(value) || this.isNumber(value) || this.isArray(value)
+        this.sdk.isString(value) ||
+        this.sdk.isNumber(value) ||
+        this.sdk.isArray(value)
       );
     });
     this.report(
@@ -95,7 +117,7 @@ class Profile {
       return;
     }
     const result = this.filter(params, (value) => {
-      return this.isNumber(value);
+      return this.sdk.isNumber(value);
     });
     this.report(
       this.sdk.createEvent({
@@ -106,7 +128,7 @@ class Profile {
   }
 
   unsetProfile(key: string) {
-    if (!key || !this.isString(key)) {
+    if (!key || !this.sdk.isString(key)) {
       return;
     }
     const params = {};
@@ -120,11 +142,11 @@ class Profile {
   }
 
   appendProfile(params: ProfileParams) {
-    if (!params || !this.isObject(params) || this.isEmpty(params)) {
+    if (!params || !this.sdk.isObject(params) || this.isEmpty(params)) {
       return;
     }
     const result = this.filter(params, (value) => {
-      return this.isString(value) || this.isArray(value);
+      return this.sdk.isString(value) || this.sdk.isArray(value);
     });
     this.report(
       this.sdk.createEvent({
@@ -177,7 +199,7 @@ class Profile {
     params: ProfileParams,
     once: boolean = false,
   ): ProfileParams | undefined {
-    if (!params || !this.isObject(params) || this.isEmpty(params)) {
+    if (!params || !this.sdk.isObject(params) || this.isEmpty(params)) {
       return;
     }
     let keys = Object.keys(params);
@@ -248,22 +270,6 @@ class Profile {
       return res;
     }, {});
     return result;
-  }
-
-  private isObject(obj: any): boolean {
-    return isObject(obj);
-  }
-
-  private isArray(obj: any): boolean {
-    return isArray(obj);
-  }
-
-  private isNumber(obj: any): boolean {
-    return isNumber(obj);
-  }
-
-  private isString(obj: any): boolean {
-    return isString(obj);
   }
 
   private isEmpty(obj: any): boolean {

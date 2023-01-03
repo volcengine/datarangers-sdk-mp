@@ -1,6 +1,5 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../../tool/time';
-import { isObject } from '../../tool/is';
 import { safeDecodeURIComponent, unserializeUrl } from '../../tool/safe';
 import type Sdk from '../../core/sdk';
 import type { TEvent } from '../../core/sdk';
@@ -26,6 +25,7 @@ abstract class Auto {
   launched: boolean = false;
   appInfo: any;
   scene: number;
+  startup: number = 0;
 
   autoConfig: AutoConfig = {
     appLaunch: true,
@@ -35,6 +35,7 @@ abstract class Auto {
     pageHide: true,
     pageShare: true,
     pageFavorite: true,
+    click: false,
   };
 
   static instances: Auto[] = [];
@@ -134,22 +135,52 @@ abstract class Auto {
       },
     };
 
-    if (Sdk.platform && Sdk.platformIs === 'swan') {
-      if (App.after && Page.after) {
-        App.after({
-          methods: {
-            ...appHooks,
-          },
-        });
+    const processMpClick = (args) => {
+      // 本函数处理tap事件并emit信号
+      const e = args && args[0];
+      if (e && e.type === 'tap') {
+        const _currentTarget = e.currentTarget || {};
+        const _target = e.target || {};
 
-        Page.after({
-          methods: {
-            ...someHooks,
-          },
+        const isTaro = typeof document !== 'undefined';
+        if (isTaro && _currentTarget.id !== _target.id) {
+          return;
+        }
+
+        const info: { target: any; dataset: any } = {
+          target: undefined,
+          dataset: undefined,
+        };
+
+        info['target'] = e.currentTarget;
+
+        let element;
+        if (
+          typeof document !== 'undefined' &&
+          document &&
+          document.getElementById &&
+          info['target'].id
+        ) {
+          element = document.getElementById(info['target'].id);
+        }
+
+        const dataset = (info['dataset'] =
+          element?.dataset || e.currentTarget?.dataset || {});
+        if (dataset?.['devtool_'] === 'is') {
+          return;
+        }
+
+        Auto.instances.map((instance) => {
+          if (instance.autoConfig.click) {
+            instance.sdk.emit(instance.sdk.types.MpClick, info);
+            if (info['ignore'] === true) {
+              return;
+            }
+            instance.mpClick(info);
+          }
         });
-        return;
       }
-    }
+    };
 
     const originApp = App;
     App = function (hooks) {
@@ -205,8 +236,30 @@ abstract class Auto {
           };
         }
       });
+      Object.keys(hooks).forEach((key) => {
+        if (
+          !Object.keys(pageHooks).includes(key) &&
+          typeof hooks[key] === 'function'
+        ) {
+          const originMethod = hooks[key];
+          hooks[key] = function (...args) {
+            try {
+              processMpClick(args);
+            } catch (e) {}
+
+            return originMethod && originMethod.apply(this, args);
+          };
+        }
+      });
       return originPage(hooks);
     };
+    if (Sdk.platform && Sdk.platformIs === 'swan') {
+      // 百度小程序的Page上会自带一些方法
+      // 还原Page上的方法
+      Object.keys(originPage).forEach((key) => {
+        Page[key] = originPage[key];
+      });
+    }
 
     if (typeof Component !== 'undefined') {
       const originComponent = Component;
@@ -252,9 +305,67 @@ abstract class Auto {
             };
           }
         });
+        Object.keys(hooks.methods).forEach((key) => {
+          if (typeof hooks['methods'][key] === 'function') {
+            const originMethod = hooks['methods'][key];
+            hooks['methods'][key] = function (...args) {
+              try {
+                processMpClick(args);
+              } catch (e) {}
+
+              return originMethod && originMethod.apply(this, args);
+            };
+          }
+        });
         return originComponent(hooks);
       };
     }
+
+    Sdk.prototype.appLaunch = function () {
+      this.appShow();
+    };
+
+    Sdk.prototype.appTerminate = function () {
+      this.appHide();
+    };
+
+    Sdk.prototype.appShow = function () {
+      let info;
+      if (typeof this.target.getLaunchOptionsSync !== 'undefined') {
+        info = this.target.getLaunchOptionsSync();
+      }
+      this.emit(this.types.AppShow, info);
+    };
+
+    Sdk.prototype.appHide = function () {
+      this.emit(this.types.AppHide);
+    };
+
+    Sdk.prototype.appError = function (error: string) {
+      this.emit(this.types.AppError, error);
+    };
+
+    Sdk.prototype.predefinePageview = function () {
+      this.emit(this.types.PageShow);
+    };
+
+    Sdk.prototype.predefinePageviewHide = function () {
+      this.emit(this.types.PageHide);
+    };
+
+    Sdk.prototype.shareAppMessage = function (info: any) {
+      try {
+        const autoPlugin = this.pluginInstances.find((pluginInstance) => {
+          return (
+            (pluginInstance.constructor as any).pluginName === 'official:auto'
+          );
+        });
+        if (autoPlugin && typeof (autoPlugin as any).pageShare === 'function') {
+          return (autoPlugin as any).pageShare(info);
+        }
+      } catch (e) {}
+      return info;
+    };
   }
 
   constructor() {
@@ -345,24 +456,27 @@ abstract class Auto {
     // });
 
     this.sdk.on(types.UuidChangeBefore, () => {
-      this.open && this.autoConfig.appTerminate && this.appHide();
+      this.open && this.autoConfig.appTerminate && this.appHide(true);
     });
     this.sdk.on(types.UuidChangeAfter, () => {
-      this.open && this.autoConfig.appLaunch && this.appShow(this.appInfo);
+      this.open &&
+        this.autoConfig.appLaunch &&
+        this.appShow(this.appInfo, true);
     });
   }
 
   event(event: string, params?: any) {
-    const { ready } = this.sdk;
-    if (ready) {
-      this.sdk.event(event, params);
-    } else {
-      this.queue.push({
-        event,
-        params,
-        local_time_ms: now(),
-      });
-    }
+    this.sdk.event(event, params);
+    // const { ready } = this.sdk;
+    // if (ready) {
+    //   this.sdk.event(event, params);
+    // } else {
+    //   this.queue.push({
+    //     event,
+    //     params,
+    //     local_time_ms: now(),
+    //   });
+    // }
   }
 
   proxySetTitle() {
@@ -378,7 +492,7 @@ abstract class Auto {
             try {
               const pages = getCurrentPages();
               const currentPagePath = pages[pages.length - 1].route || '';
-              if (!isObject(titleInfo)) {
+              if (!that.sdk.isObject(titleInfo)) {
                 titleInfo = {};
               }
               const caches = that.sdk.get('title-caches') || {};
@@ -453,7 +567,7 @@ abstract class Auto {
 
   getQuery(query: Record<string, any> = {}): Record<string, any> {
     const qs = {};
-    if (isObject(query)) {
+    if (this.sdk.isObject(query)) {
       if (query.scene) {
         const sceneObj = unserializeUrl(
           safeDecodeURIComponent(`${query.scene}`),
@@ -514,18 +628,20 @@ abstract class Auto {
   }
 
   appShowPrefix(info?: any) {
+    this.startup++;
     if (this.sdk.checkUsePlugin('official:utm')) {
       this.sdk.emit(this.sdk.types.LaunchInfo, info);
     }
   }
 
-  abstract appShow(info?: any);
-  abstract appHide();
+  abstract appShow(info?: any, onChangeUuid?: boolean);
+  abstract appHide(onChangeUuid?: boolean);
   abstract appError(error: string);
   abstract pageShow();
   abstract pageHide();
   abstract pageShare(info: any);
   abstract pageFavorite(info: any);
+  abstract mpClick(info: { target: any; dataset: any });
 }
 
 class OldAuto extends Auto {
@@ -535,7 +651,7 @@ class OldAuto extends Auto {
   recentlyPage: any;
   currentPvInfo: any;
 
-  appShow(info?: any) {
+  appShow(info?: any, onChangeUuid: boolean = false) {
     info = info || this.appInfo;
     info = this.fixInfo('App.onShow', info);
     const sessionId = this.sdk.sessionId;
@@ -552,12 +668,14 @@ class OldAuto extends Auto {
     };
 
     const data = {
-      session_id: sessionId,
-      $is_first_time: this.firstTime,
       ...other,
       ...(this.scene ? { scene: this.scene } : {}),
       ...this.getQuery(newQuery),
+      session_id: sessionId,
+      $is_first_time: this.firstTime,
     };
+
+    data['launch_type'] = onChangeUuid ? 2 : this.startup > 1 ? 1 : 0;
 
     this.sdk.emit(this.sdk.types.ExtendAppLaunch, data);
 
@@ -568,18 +686,20 @@ class OldAuto extends Auto {
     }
   }
 
-  appHide() {
+  appHide(onChangeUuid: boolean = false) {
     const { route, __route__, options: query = {} } = this.getCurrentPage();
     const path = route || __route__;
 
     const data = {
+      ...(this.scene ? { scene: this.scene } : {}),
+      ...this.getQuery(query),
       exit_page: path,
       session_duration: Math.ceil((now() - this.sessionStart) / 1000),
       session_depth: this.sessionDepth,
       session_id: this.sdk.sessionId,
-      ...(this.scene ? { scene: this.scene } : {}),
-      ...this.getQuery(query),
     };
+
+    data['terminate_type'] = onChangeUuid ? 2 : 1;
 
     this.sdk.emit(this.sdk.types.ExtendAppTerminate, data);
 
@@ -603,11 +723,11 @@ class OldAuto extends Auto {
     const path = route || __route__;
     const { EventType } = this.sdk;
     const pvInfo = {
+      ...(this.scene ? { scene: this.scene } : {}),
+      ...this.getQuery(query),
       path,
       title: this.getPageTitle(path),
       session_id: this.sdk.sessionId,
-      ...(this.scene ? { scene: this.scene } : {}),
-      ...this.getQuery(query),
     };
     let lastPage = null;
     if (this.recentlyPage) {
@@ -652,6 +772,7 @@ class OldAuto extends Auto {
     const data = {
       ...(params || {}),
       duration,
+      session_id: this.sdk.sessionId,
     };
 
     this.sdk.emit(this.sdk.types.ExtendPageHide, data);
@@ -702,14 +823,38 @@ class OldAuto extends Auto {
     const path = route || __route__;
     const { query, ...other } = result;
     const data = {
+      ...other,
       url_path: res?.webViewUrl || path,
       url_query: query,
-      ...other,
     };
 
     this.sdk.emit(this.sdk.types.ExtendPageFavorite, data);
 
     this.event(this.sdk.EventType.pageOnAddToFavorites, data);
+  }
+  mpClick(info: { target: any; dataset: any }) {
+    const { target, dataset } = info;
+
+    const pages = getCurrentPages();
+    const currentPage = pages[pages.length - 1];
+
+    const { route, __route__ } = currentPage;
+
+    const path = route || __route__;
+    const data = { path, page_key: path };
+    if (target?.id) {
+      data['query_id'] = target.id;
+    }
+    Object.keys(dataset).map((key) => {
+      if (key !== 'id') {
+        // data-id不会覆盖原有的id
+        data[`query_${key}`] = dataset[key];
+      } else {
+        data[`query_data_id`] = dataset['id'];
+      }
+    });
+
+    this.event(this.sdk.EventType.mpClick, data);
   }
 }
 
@@ -733,6 +878,8 @@ class NewAuto extends Auto {
   pageShare(info: any) {}
 
   pageFavorite(info: any) {}
+
+  mpClick(info: any) {}
 }
 
 export default OldAuto;

@@ -12,6 +12,7 @@ class Report {
   cache: TEventData[] = [];
   reportUrl: string;
   pause: boolean = false;
+  eventName: string = `request_status__`;
   apply(sdk: Sdk, options: TOption) {
     this.sdk = sdk;
     this.options = options;
@@ -27,6 +28,13 @@ class Report {
       if (!this.sdk.ready || this.pause) {
         event.forEach((each) => this.cache.push(each));
         return;
+      }
+      this.report(event);
+    });
+
+    this.sdk.on(types.ReportSoon, (event: TEventData | TEventData[]) => {
+      if (!Array.isArray(event)) {
+        event = [event];
       }
       this.report(event);
     });
@@ -67,14 +75,23 @@ class Report {
     this.submit(eventDatas);
   }
 
-  private submit(data: any) {
+  private submit(data: TEventData[]) {
     const { types } = this.sdk;
     this.sdk.emit(types.SubmitBefore, data);
+    const enableEncrypt = !!this.options.enable_encrypt;
+    const wrapData = {
+      data,
+    };
+    if (enableEncrypt) {
+      this.sdk.emit(types.DataEncrypt, wrapData);
+    }
+    const reportUrl = this.changeReportUrl(enableEncrypt);
+
     this.sdk.adapter
       .request({
-        url: this.reportUrl,
+        url: reportUrl,
         method: 'POST',
-        data,
+        data: (enableEncrypt ? `data=${wrapData.data}` : data) as any,
       })
       .then((response) => {
         this.sdk.emit(types.SubmitAfter, {
@@ -82,6 +99,22 @@ class Report {
           response,
           event: data,
         });
+        try {
+          if (this.checkMonitor(data)) {
+            return;
+          }
+          const { data: responseData, statusCode } = response;
+          if (responseData.e !== 0) {
+            const events = data.map((item) => {
+              return item?.events;
+            });
+            this.reportMonitor({
+              status_code: statusCode,
+              response_data: JSON.stringify(responseData),
+              event_info: JSON.stringify(events),
+            });
+          }
+        } catch (e) {}
       })
       .catch((error) => {
         this.sdk.emit(types.SubmitAfter, {
@@ -89,10 +122,43 @@ class Report {
           error,
           event: data,
         });
-        this.sdk.emit(types.SubmitError, {
-          event: data,
-        });
+        try {
+          if (this.checkMonitor(data)) {
+            return;
+          }
+          this.sdk.emit(types.SubmitError, {
+            event: data,
+          });
+        } catch (e) {}
       });
+  }
+
+  reportMonitor(params: any) {
+    const eventData = this.sdk.createEvent({
+      event: this.eventName,
+      params,
+    });
+    const data = this.sdk.env.merge([eventData]);
+    this.submit(data);
+  }
+
+  checkMonitor(data: TEventData[]): boolean {
+    if (
+      data &&
+      data[0] &&
+      data[0].events[0] &&
+      data[0].events[0].event === this.eventName
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  changeReportUrl(enableEncrypt: boolean) {
+    if (!enableEncrypt) {
+      return this.reportUrl;
+    }
+    return this.reportUrl + '&encryption=1';
   }
 }
 

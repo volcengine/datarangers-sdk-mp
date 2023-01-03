@@ -5,6 +5,8 @@ declare const my;
 declare const swan;
 declare const qq;
 declare const uni;
+declare const jd;
+declare const ks;
 
 declare const __wxConfig;
 declare const __ttConfig;
@@ -26,6 +28,14 @@ export const getWhich = () => {
           customPlatform: 'ttMiniProduct',
           mpPlatform: 2,
           is: 'tt',
+        }
+      : typeof ks !== UNDEFINED
+      ? {
+          target: ks,
+          config: null,
+          customPlatform: 'ksMiniProduct',
+          mpPlatform: 9,
+          is: 'ks',
         }
       : typeof my !== UNDEFINED
       ? {
@@ -66,6 +76,14 @@ export const getWhich = () => {
           customPlatform: 'uniMiniProduct',
           mpPlatform: 7,
           is: 'uni',
+        }
+      : typeof jd !== UNDEFINED
+      ? {
+          target: jd,
+          config: null,
+          customPlatform: 'jdMiniProduct',
+          mpPlatform: 8,
+          is: 'jd',
         }
       : {
           target: {},

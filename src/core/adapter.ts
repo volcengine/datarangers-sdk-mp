@@ -1,5 +1,4 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
-import { isObject, isFunction } from '../tool/is';
 import type Sdk from './sdk';
 
 export interface AdapterLog {
@@ -17,6 +16,7 @@ export interface AdapterStorage {
   get(key: string): Promise<any>;
   set(key: string, value: any): Promise<boolean>;
   remove(key: string): Promise<boolean>;
+  info(): Promise<any>;
 }
 
 export type TRequestArgs = {
@@ -29,7 +29,7 @@ export type TRequestArgs = {
 };
 
 class Adapter {
-  private _log: AdapterLog;
+  public _log: AdapterLog;
   private _request: ReturnType<AdapterRequest>;
   private _storage: AdapterStorage;
 
@@ -41,15 +41,15 @@ class Adapter {
   }
 
   setLog(log: AdapterLog) {
-    if (log && isFunction(log.log)) {
+    if (log && this.sdk.isFunction(log.log)) {
       this._log = log;
     }
   }
 
   setRequest(request: AdapterRequest) {
-    if (isFunction(request)) {
+    if (this.sdk.isFunction(request)) {
       const _request = request(this.sdk);
-      if (isFunction(_request)) {
+      if (this.sdk.isFunction(_request)) {
         this._request = _request;
       }
     }
@@ -57,10 +57,10 @@ class Adapter {
 
   setStorage(storage: AdapterStorage) {
     if (
-      isObject(storage) &&
-      isFunction(storage.get) &&
-      isFunction(storage.set) &&
-      isFunction(storage.remove)
+      this.sdk.isObject(storage) &&
+      this.sdk.isFunction(storage.get) &&
+      this.sdk.isFunction(storage.set) &&
+      this.sdk.isFunction(storage.remove)
     ) {
       this._storage = storage;
     }
@@ -85,7 +85,7 @@ class Adapter {
 
   request(args: TRequestArgs): Promise<any> {
     if (!this.ready) {
-      return Promise.reject();
+      return Promise.reject(null);
     }
     try {
       return this._request?.(args);
@@ -111,6 +111,13 @@ class Adapter {
       return Promise.reject(false);
     }
     return this._storage.remove(key);
+  }
+
+  storageInfo(): Promise<any> {
+    if (!this.ready) {
+      return Promise.reject(null);
+    }
+    return this._storage.info();
   }
 }
 

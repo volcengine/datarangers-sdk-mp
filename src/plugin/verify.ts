@@ -35,12 +35,16 @@ class Verify {
     this.sdk = sdk;
     this.options = options;
 
+    if (this.options.disable_verify) {
+      return;
+    }
+
     const { types } = this.sdk;
-    this.sdk.once(types.AppOpen, (host) => {
+    this.sdk.once(types.AppOpen, () => {
       try {
-        this.host = host;
-        if (host.getLaunchOptionsSync) {
-          const info = host.getLaunchOptionsSync();
+        this.host = this.sdk.target;
+        if (this.host.getLaunchOptionsSync) {
+          const info = this.host.getLaunchOptionsSync();
           const { query } = info;
           this.verify(query).then(() => {
             this.needOn = true;
@@ -84,6 +88,7 @@ class Verify {
     };
     const cryptDomain = this.check(query);
     adapter.log(`verify ${cryptDomain}`);
+    const that = this;
     if (cryptDomain) {
       try {
         const decryptDomain = decrypto('logverify')(cryptDomain);
@@ -92,13 +97,13 @@ class Verify {
         }
         adapter.log(`verify domain ${decryptDomain}`);
       } catch (e) {}
-      this.host.getSetting({
+      that.host.getSetting({
         success(res: any) {
           adapter.log(`getSetting success`);
           if (res.authSetting['scope.userInfo']) {
             adapter.log(`getSetting scope.userInfo success`);
-            if (this.host.getUserInfo) {
-              this.host.getUserInfo({
+            if (that.host.getUserInfo) {
+              that.host.getUserInfo({
                 success(res: any) {
                   adapter.log(`getUserInfo success`);
                   const { nickName, avatarUrl } = res.userInfo;
@@ -112,8 +117,8 @@ class Verify {
                   verifyOpen();
                 },
               });
-            } else if (this.host.getOpenUserInfo) {
-              this.host.getOpenUserInfo({
+            } else if (that.host.getOpenUserInfo) {
+              that.host.getOpenUserInfo({
                 success(res: any) {
                   adapter.log(`getUserInfo success`);
                   try {

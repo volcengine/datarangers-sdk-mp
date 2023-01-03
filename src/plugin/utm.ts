@@ -1,6 +1,5 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../tool/time';
-import { isObject } from '../tool/is';
 import { safeDecodeURIComponent, unserializeUrl } from '../tool/safe';
 import type Sdk from '../core/sdk';
 import type { TOption } from '../core/option';
@@ -155,7 +154,7 @@ class Utm {
       .then((res) => {
         const { data: { code = -1, data = {}, message = '' } = {} } = res || {};
         if (code === 0) {
-          if (isObject(data)) {
+          if (this.sdk.isObject(data)) {
             let hasUtm = false;
             const utms = Object.keys(data).reduce((result, each) => {
               if (UtmType.includes(each)) {

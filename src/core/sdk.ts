@@ -4,8 +4,8 @@ import Option from './option';
 import Hook from './hook';
 import Adapter from './adapter';
 import Types from './type';
-import { EventType, ProfileType, UtmType } from './constant';
-import { isObject, isNumber, isString } from '../tool/is';
+import { EventType, ProfileType, UtmType, Domains } from './constant';
+import { isObject, isNumber, isArray, isString, isFunction } from '../tool/is';
 import uuid from '../tool/uuid';
 import { now } from '../tool/time';
 import type { TEnv } from './env';
@@ -63,11 +63,12 @@ class Sdk {
   public option: Option;
   private hook: Hook;
   public adapter: Adapter;
-  public types: typeof Types = Types;
+  public types = Types;
   public EventType = EventType;
   public ProfileType = ProfileType;
   public UtmType = UtmType;
   public SdkHook = Types;
+  public Domains = Domains;
 
   private static _log: AdapterLog;
   private static _request: AdapterRequest;
@@ -80,12 +81,14 @@ class Sdk {
   public static platform: any;
   public static platformIs: string;
 
-  private inited: boolean = false;
-  private sended: boolean = false;
+  public inited: boolean = false;
+  public sended: boolean = false;
   private _appId: number;
 
   protected pluginInstances: Array<Plugin> = [];
-  private data: Map<string, any> = new Map();
+  // protected pluginInstances: Array<{ instance: Plugin; name: string }> = [];
+  private data: Record<string, any> = {};
+  private unInitedCache: any[] = [];
 
   public target: any;
   public targetEnvConfig: any;
@@ -93,11 +96,13 @@ class Sdk {
 
   public ready: boolean = false;
   public sessionId: string = '';
+  private appShowStarted: boolean = false;
 
   constructor() {
     this.env = new Env(this);
     this.option = new Option();
     this.hook = new Hook();
+    this.sessionId = uuid();
     Sdk.instances.push(this);
 
     try {
@@ -112,6 +117,15 @@ class Sdk {
         result.push(new P());
         return result;
       }, this.pluginInstances);
+
+      // Sdk.plugins.reduce((result, plugin) => {
+      //   const { plugin: P, name } = plugin;
+      //   result.push({
+      //     name,
+      //     instance: new P(),
+      //   });
+      //   return result;
+      // }, this.pluginInstances);
     } catch (e) {}
   }
 
@@ -181,7 +195,7 @@ class Sdk {
   }
 
   init(options: InitParams) {
-    if (this.inited || !isObject(options)) {
+    if (this.inited || !this.isObject(options)) {
       return;
     }
     const { app_id: appId, log, ...otherOptions } = options;
@@ -204,13 +218,17 @@ class Sdk {
 
     Promise.all([
       new Promise<boolean>((resolve) => {
-        this.once(Types.TokenComplete, () => {
+        this.once(this.types.TokenComplete, () => {
           resolve(true);
         });
       }),
       new Promise<boolean>((resolve) => {
+        if (options['enable_skip_launch']) {
+          resolve(true);
+          return;
+        }
         if (this.checkUsePlugin('official:auto')) {
-          this.on(Types.LaunchComplete, () => {
+          this.on(this.types.LaunchComplete, () => {
             resolve(true);
           });
         } else {
@@ -221,14 +239,25 @@ class Sdk {
         if (this.sended) {
           resolve(true);
         } else {
-          this.once(Types.Send, () => {
+          this.once(this.types.Send, () => {
             resolve(true);
           });
         }
       }),
     ]).then(() => {
       this.ready = true;
-      this.emit(Types.Ready);
+      this.emit(this.types.Ready);
+    });
+
+    this.on(this.types.AppShowStart, () => {
+      if (!this.appShowStarted) {
+        this.appShowStarted = true;
+      } else {
+        this.sessionId = uuid();
+      }
+    });
+    this.on(this.types.UuidChangeAfter, () => {
+      this.sessionId = uuid();
     });
 
     const cloneOptions = this.option.get() as TOption;
@@ -236,49 +265,62 @@ class Sdk {
       instance.apply(this, cloneOptions);
     });
 
+    // this.pluginInstances.filter(({ instance, name }) => {
+    //   if (
+    //     [
+    //       'official:token',
+    //       'official:info',
+    //       'official:report',
+    //       'official:buffer',
+    //       'official:transform',
+    //     ].includes(name)
+    //   ) {
+    //     instance.apply(this, cloneOptions);
+    //   } else {
+    //     Promise.resolve().then(() => {
+    //       instance.apply(this, cloneOptions);
+    //     });
+    //   }
+    // });
+
     if (this.get('is-crawler')) {
       return;
     }
 
     this.inited = true;
-    this.emit(Types.Init);
+    this.emit(this.types.Init);
 
-    this.sessionId = uuid();
-    this.on(Types.AppShowStart, () => {
-      this.sessionId = uuid();
-    });
+    if (this.unInitedCache.length > 0) {
+      this.unInitedCache.forEach((eventData) => {
+        this.emit(this.types.Event, eventData);
+      });
+    }
   }
 
   config(configs: ConfigParams) {
-    if (!this.inited || !isObject(configs)) {
+    if (!this.inited || !this.isObject(configs)) {
       return;
     }
-    this.emit(Types.Config, configs);
-    this.emit(Types.ConfigTransform, configs);
+    this.emit(this.types.Config, configs);
+    this.emit(this.types.ConfigTransform, configs);
     const {
       web_id: webId,
       user_unique_id: userUniqueId,
       ...otherConfigs
     } = configs;
     if (webId !== undefined) {
-      this.emit(Types.ConfigWebId, webId);
+      this.emit(this.types.ConfigWebId, webId);
     }
     if (userUniqueId !== undefined) {
-      this.emit(Types.ConfigUuid, userUniqueId);
+      this.emit(this.types.ConfigUuid, userUniqueId);
     }
 
-    isObject(otherConfigs) &&
-      Object.keys(otherConfigs).forEach((header) => {
-        if (header === 'evtParams') {
-          const { evtParams } = otherConfigs;
-          isObject(evtParams) &&
-            Object.keys(evtParams).forEach((evtParam) => {
-              this._checkSet('header', evtParam, evtParams[evtParam]);
-            });
-        } else {
-          this._checkSet('header', header, otherConfigs[header]);
-        }
+    if (!this.option.get('disable_check')) {
+      this.emit(this.types.Check, {
+        type: 'config',
+        value: otherConfigs,
       });
+    }
 
     this.env.set(otherConfigs);
   }
@@ -288,7 +330,7 @@ class Sdk {
       return;
     }
     this.sended = true;
-    this.emit(Types.Send);
+    this.emit(this.types.Send);
   }
 
   event(event: string, params?: EventParams);
@@ -314,7 +356,7 @@ class Sdk {
         let event, params, time;
         if (Array.isArray(each)) {
           [event, params, time] = each;
-        } else if (isObject(each)) {
+        } else if (this.isObject(each)) {
           event = each.event;
           params = each.params;
           time = each.local_time_ms;
@@ -334,16 +376,26 @@ class Sdk {
         );
       });
       if (events.length > 0) {
-        this.emit(Types.Event, events);
+        if (!this.inited) {
+          this.unInitedCache.push(events);
+        } else {
+          this.emit(this.types.Event, events);
+        }
       }
     } else {
-      this.emit(
-        Types.Event,
-        this.createEvent({
-          event,
-          params,
-        }),
-      );
+      const eventData = this.createEvent({
+        event,
+        params,
+      });
+      if (!this.inited) {
+        this.unInitedCache.push(eventData);
+      } else {
+        this.emit(this.types.Event, eventData);
+      }
+      // this.emit(this.types.Verify, {
+      //   event,
+      //   params,
+      // });
     }
   }
 
@@ -362,18 +414,12 @@ class Sdk {
       ...(this.sessionId ? { session_id: this.sessionId } : {}),
     };
 
-    const isProfile = event.event?.indexOf('__profile_') === 0;
-    if (!isProfile) {
-      this._checkSet('name', event.event);
-    }
-    isObject(event.params) &&
-      Object.keys(event.params).forEach((param) => {
-        this._checkSet(
-          isProfile ? 'profile' : 'param',
-          param,
-          event.params[param],
-        );
+    if (!this.option.get('disable_check')) {
+      this.emit(this.types.Check, {
+        type: 'event',
+        value: event,
       });
+    }
 
     if (!ab) {
       return event;
@@ -398,11 +444,11 @@ class Sdk {
   }
 
   set(key: string, value: any) {
-    this.data.set(key, value);
+    this.data[key] = value;
   }
 
   get(key: string): any {
-    return this.data.get(key);
+    return this.data[key];
   }
 
   getKey(which: string): undefined | string {
@@ -417,6 +463,7 @@ class Sdk {
       utm: 'utm',
       first: 'first',
       compensate: 'compensate',
+      buffer: 'buffer',
     };
     return map[which] ? `__tea_cache_${map[which]}_${appId}` : undefined;
   }
@@ -441,13 +488,13 @@ class Sdk {
     callback?: (value: Record<string, any>) => void,
   ): void | Promise<Record<string, any>> {
     if (callback) {
-      this.emit(Types.TokenGet, {
+      this.emit(this.types.TokenGet, {
         callback,
       });
       return;
     }
     return new Promise((resolve) => {
-      this.emit(Types.TokenGet, {
+      this.emit(this.types.TokenGet, {
         callback: (value: any) => {
           resolve(value);
         },
@@ -479,174 +526,45 @@ class Sdk {
     }
   }
 
-  _checkSet(type: string, key: any, val?: any) {
-    const keyCheck = (val: string): boolean => {
-      return /^[a-zA-Z0-9][a-z0-9A-Z_ .-]{0,255}$/.test(val);
-    };
-    const valCheck = (val: any): boolean => {
-      return String(val).length <= 1024;
-    };
-    switch (type) {
-      case 'name':
-        if (!keyCheck(String(key))) {
-          Sdk._log?.warn?.(`event name ${key} illegal`);
-        }
-        break;
-      case 'param':
-      case 'header':
-      case 'profile': {
-        const text =
-          type === 'param'
-            ? 'event params'
-            : type === 'header'
-            ? 'config'
-            : 'profile';
-        if (
-          (key === 'profile' ||
-            ![
-              '$inactive',
-              '$inline',
-              '$target_uuid_list',
-              '$source_uuid',
-              '$is_spider',
-              '$source_id',
-              '$is_first_time',
-            ].includes(key)) &&
-          !keyCheck(String(key))
-        ) {
-          Sdk._log?.warn?.(`${text} name ${key} illegal`);
-        }
-        if (typeof val === 'string' && !valCheck(val)) {
-          Sdk._log?.warn?.(
-            `the value ${val} length more than 1024 in ${text} ${key}`,
-          );
-        }
-        break;
-      }
-    }
+  isObject(obj: any): boolean {
+    return isObject(obj);
   }
 
-  /** AB相关api */
-  getVar(name: string, defaultValue: any, callback: (value: any) => void): void;
-  getVar(name: string, defaultValue: any): Promise<any>;
-  getVar(
-    name: string,
-    defaultValue: any,
-    callback?: (value: any) => void,
-  ): void | Promise<any> {
-    if (callback) {
-      this.emit(Types.AbVar, {
-        name,
-        defaultValue,
-        callback,
-      });
-      return;
-    }
-    return new Promise((resolve) => {
-      this.emit(Types.AbVar, {
-        name,
-        defaultValue,
-        callback: (value: any) => {
-          resolve(value);
-        },
-      });
-    });
+  isArray(obj: any): boolean {
+    return isArray(obj);
   }
-  getAllVars(callback: (value: any) => void): void;
-  getAllVars(): Promise<any>;
-  getAllVars(callback?: (value: any) => void): void | Promise<any> {
-    if (callback) {
-      this.emit(Types.AbAllVars, callback);
-      return;
-    }
-    return new Promise((resolve) => {
-      this.emit(Types.AbAllVars, (value: any) => {
-        resolve(value);
-      });
-    });
+
+  isNumber(obj: any): boolean {
+    return isNumber(obj);
   }
-  getAbSdkVersion(): string {
-    const abVersions = this.get('ab_versions') || [];
-    return abVersions.length > 0 ? abVersions[abVersions.length - 1].ab : '';
+
+  isString(obj: any): boolean {
+    return isString(obj);
   }
-  onAbSdkVersionChange(cb: (versions: string) => void): () => void {
-    this.emit(Types.AbVersionChangeOn, cb);
-    return () => {
-      this.emit(Types.AbVersionChangeOff, cb);
-    };
+
+  isFunction(obj: any): boolean {
+    return isFunction(obj);
   }
-  offAbSdkVersionChange(cb: (versions: string) => void) {
-    this.emit(Types.AbVersionChangeOff, cb);
+
+  isUndefined(obj: any): boolean {
+    return typeof obj === 'undefined';
   }
-  setExternalAbVersion(vids: string | null) {
-    this.emit(
-      Types.AbExternalVersion,
-      typeof vids === 'string' && vids ? `${vids}`.trim() : null,
-    );
-  }
-  getAbConfig(
-    params: Record<string, any>,
-    callback: (value: any) => void,
-  ): void;
-  getAbConfig(params: Record<string, any>): Promise<any>;
-  getAbConfig(
-    params: Record<string, any>,
-    callback?: (value: any) => void,
-  ): void | Promise<any> {
-    if (callback) {
-      this.emit(Types.AbRefresh, {
-        params,
-        callback,
-      });
-      return;
-    }
-    return new Promise((resolve) => {
-      this.emit(Types.AbRefresh, {
-        params,
-        callback: (value: any) => {
-          resolve(value);
-        },
-      });
+
+  setUserUniqueID(uuid: string | number | null) {
+    this.config({
+      user_unique_id: uuid,
     });
   }
 
-  /** profile相关api */
-  profileSet(params: ProfileParams) {
-    this.emit(Types.ProfileSet, params);
-  }
-  profileSetOnce(params: ProfileParams) {
-    this.emit(Types.ProfileSetOnce, params);
-  }
-  profileUnset(key: string) {
-    this.emit(Types.ProfileUnset, key);
-  }
-  profileIncrement(params: ProfileIncrementParams) {
-    this.emit(Types.ProfileIncrement, params);
-  }
-  profileAppend(params: ProfileParams) {
-    this.emit(Types.ProfileAppend, params);
+  setHeaderInfo(key: string, value: any) {
+    this.config({
+      [key]: value,
+    });
   }
 
-  /** APM */
-  autoInitializationRangers(
-    config: TOption & { app_id: number; onTokenReady: (webId: string) => void },
-  ): void | Promise<string> {
-    const { onTokenReady: callback, ...initOption } = config;
-    this.init({
-      ...initOption,
-      log: false,
-      enable_third: true,
-    });
-    this.send();
-    return this.getToken().then((tokens) => {
-      const { web_id: webId } = tokens;
-      try {
-        if (typeof callback === 'function') {
-          callback(`${webId}`);
-          return;
-        }
-      } catch (e) {}
-      return `${webId}`;
+  removeHeaderInfo(key: string) {
+    this.config({
+      [key]: undefined,
     });
   }
 }

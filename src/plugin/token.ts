@@ -1,5 +1,4 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
-import { isObject } from '../tool/is';
 import type Sdk from '../core/sdk';
 import type { TOption } from '../core/option';
 
@@ -16,6 +15,8 @@ enum TypeVal {
 
 class DefaultToken implements IToken {
   url: string = `/webid/`;
+  retry: number = 0;
+  retryComplete: boolean = false;
   constructor(public wrap: Token, public sdk: Sdk) {}
 
   storageNoData() {
@@ -48,16 +49,39 @@ class DefaultToken implements IToken {
             this.fetchComplete(webId);
             return;
           }
+          if (!this.retryComplete) {
+            this.retryFetch();
+            return;
+          }
           adapter.log(`parse web_id error`, code);
         } catch (e) {
+          if (!this.retryComplete) {
+            this.retryFetch();
+            return;
+          }
           adapter.log(`parse web_id error`, e);
         }
         this.fetchComplete();
       })
       .catch((info) => {
+        if (!this.retryComplete) {
+          this.retryFetch();
+          return;
+        }
         this.fetchComplete();
         adapter.log(`fetch web_id error`, info);
       });
+  }
+
+  retryFetch() {
+    if (this.retry >= this.wrap.options.request_webid_number) {
+      this.retryComplete = true;
+      return;
+    }
+    this.retry++;
+    setTimeout(() => {
+      this.fetch();
+    }, 25);
   }
 
   fetchComplete(webId?: string) {
@@ -206,7 +230,7 @@ class Token {
     adapter
       .get(this.key)
       .then((data) => {
-        if (!isObject(data) || !data.web_id) {
+        if (!this.sdk.isObject(data) || !data.web_id) {
           this.storageComplete(null);
           return;
         }
@@ -218,6 +242,7 @@ class Token {
           data = {
             web_id: data.web_id,
             user_unique_id: data.user_unique_id || data.web_id,
+            [this.typeKey]: this.isCustom ? TypeVal.Custom : TypeVal.Default,
           };
           adapter.set(this.key, data);
         }

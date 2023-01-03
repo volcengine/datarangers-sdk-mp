@@ -1,6 +1,5 @@
 // Copyright 2022 Beijing Volcanoengine Technology Ltd. All Rights Reserved.
 import { now } from '../tool/time';
-import { isObject } from '../tool/is';
 import type Sdk from '../core/sdk';
 import type { TOption } from '../core/option';
 
@@ -51,6 +50,76 @@ export const DOMAINS = {
   sg: 'https://toblog.tobsnssdk.com',
 };
 
+function getVar(
+  name: string,
+  defaultValue: any,
+  callback: (value: any) => void,
+): void;
+function getVar(name: string, defaultValue: any): Promise<any>;
+function getVar(
+  name: string,
+  defaultValue: any,
+  callback?: (value: any) => void,
+): void | Promise<any> {
+  if (callback) {
+    this.emit(this.types.AbVar, {
+      name,
+      defaultValue,
+      callback,
+    });
+    return;
+  }
+  return new Promise((resolve) => {
+    this.emit(this.types.AbVar, {
+      name,
+      defaultValue,
+      callback: (value: any) => {
+        resolve(value);
+      },
+    });
+  });
+}
+
+function getAllVars(callback: (value: any) => void): void;
+function getAllVars(): Promise<any>;
+function getAllVars(callback?: (value: any) => void): void | Promise<any> {
+  if (callback) {
+    this.emit(this.types.AbAllVars, callback);
+    return;
+  }
+  return new Promise((resolve) => {
+    this.emit(this.types.AbAllVars, (value: any) => {
+      resolve(value);
+    });
+  });
+}
+
+function getAbConfig(
+  params: Record<string, any>,
+  callback: (value: any) => void,
+): void;
+function getAbConfig(params: Record<string, any>): Promise<any>;
+function getAbConfig(
+  params: Record<string, any>,
+  callback?: (value: any) => void,
+): void | Promise<any> {
+  if (callback) {
+    this.emit(this.types.AbRefresh, {
+      params,
+      callback,
+    });
+    return;
+  }
+  return new Promise((resolve) => {
+    this.emit(this.types.AbRefresh, {
+      params,
+      callback: (value: any) => {
+        resolve(value);
+      },
+    });
+  });
+}
+
 class Ab {
   static pluginName: string = 'official:ab';
   sdk: Sdk;
@@ -75,9 +144,38 @@ class Ab {
   externalVersions: string | null = null;
   hasOn: boolean = false;
   onHandler: (data: any) => void = () => {};
-  changeListener: Map<any, any> = new Map();
+  changeListener: ((v: string) => void)[] = [];
   exposureName: string = `abtest_exposure`;
   clear: boolean = false;
+
+  static init(Sdk) {
+    Sdk.prototype.getVar = getVar;
+    Sdk.prototype.getAllVars = getAllVars;
+    Sdk.prototype.getAbSdkVersion = function (): string {
+      const abVersions = this.get('ab_versions') || [];
+      return abVersions.length > 0 ? abVersions[abVersions.length - 1].ab : '';
+    };
+    Sdk.prototype.onAbSdkVersionChange = function (
+      cb: (versions: string) => void,
+    ): () => void {
+      this.emit(this.types.AbVersionChangeOn, cb);
+      return () => {
+        this.emit(this.types.AbVersionChangeOff, cb);
+      };
+    };
+    Sdk.prototype.offAbSdkVersionChange = function (
+      cb: (versions: string) => void,
+    ) {
+      this.emit(this.types.AbVersionChangeOff, cb);
+    };
+    Sdk.prototype.setExternalAbVersion = function (vids: string | null) {
+      this.emit(
+        this.types.AbExternalVersion,
+        typeof vids === 'string' && vids ? `${vids}`.trim() : null,
+      );
+    };
+    Sdk.prototype.getAbConfig = getAbConfig;
+  }
 
   apply(sdk: Sdk, options: TOption) {
     this.sdk = sdk;
@@ -143,12 +241,13 @@ class Ab {
     });
 
     this.sdk.on(types.AbVersionChangeOn, (cb: (versions: string) => void) => {
-      this.changeListener.set(cb, cb);
+      this.changeListener.push(cb);
     });
 
     this.sdk.on(types.AbVersionChangeOff, (cb: (versions: string) => void) => {
-      if (this.changeListener.get(cb)) {
-        this.changeListener.delete(cb);
+      const index = this.changeListener.indexOf(cb);
+      if (index !== -1) {
+        this.changeListener.splice(index, 1);
       }
     });
 
@@ -269,7 +368,7 @@ class Ab {
       callback(defaultValue);
       return;
     }
-    if (isObject(data[name])) {
+    if (this.sdk.isObject(data[name])) {
       const { vid, val } = data[name];
       if (vid) {
         if (!this.versions.includes(vid)) {
@@ -317,7 +416,7 @@ class Ab {
 
   private emitChange() {
     const abVersions = this.versions.join(',');
-    this.changeListener.size > 0 &&
+    this.changeListener.length > 0 &&
       this.changeListener.forEach((listener) => {
         if (typeof listener === 'function') {
           setTimeout(() => {

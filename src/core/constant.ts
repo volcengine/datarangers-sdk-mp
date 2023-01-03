@@ -25,8 +25,18 @@ export const ENABLE_BUFFER = false;
 export const BUFFER_INTERVAL = 5000;
 export const BUFFER_NUMBER = 5;
 export const ENABLE_STORAGE_ONLY = false;
+export const ENABLE_CACHE = false;
 
 export const DISABLE_SDK_MONITOR = false;
+
+export const ENABLE_ENCRYPT = false;
+export const ENABLE_SKIP_LAUNCH = false;
+export const ENABLE_SKIP_NETWORK = true;
+export const ENABLE_RETRY_UNREADY = true;
+export const ENABLE_TRACE = false;
+export const REQUEST_WEBID_NUMBER = 10;
+export const DISABLE_CHECK = false;
+export const DISABLE_VERIFY = false;
 
 export const Domains = {
   // cn: 'https://mcs.ctobsnssdk.com',
@@ -43,6 +53,7 @@ export const EventType = {
   pageOnHide: 'predefine_pageview_hide',
   pageOnShareAppMessage: 'on_share',
   pageOnAddToFavorites: 'on_addtofavorites',
+  mpClick: 'bav2b_click',
 };
 
 export const UtmType = [

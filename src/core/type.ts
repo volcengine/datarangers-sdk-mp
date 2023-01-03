@@ -61,6 +61,16 @@ enum Types {
   ExtendPageHide = '$extend-page-hide',
   ExtendPageShare = '$extend-page-share',
   ExtendPageFavorite = '$extend-page-favorite',
+
+  MpClick = '$mp-click',
+  Network = '$network',
+  CacheUnReady = '$cache-unready',
+  CacheBuffer = '$cache-buffer',
+  Verify = '$verify',
+  Check = '$check',
+
+  DataEncrypt = '$data-encrypt',
+  ReportSoon = '$report-soon',
 }
 
 export default Types;

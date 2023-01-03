@@ -22,19 +22,29 @@ import {
   BUFFER_INTERVAL,
   BUFFER_NUMBER,
   ENABLE_STORAGE_ONLY,
+  ENABLE_CACHE,
   Domains,
   DISABLE_SDK_MONITOR,
+  ENABLE_ENCRYPT,
+  ENABLE_SKIP_LAUNCH,
+  ENABLE_SKIP_NETWORK,
+  ENABLE_RETRY_UNREADY,
+  ENABLE_TRACE,
+  REQUEST_WEBID_NUMBER,
+  DISABLE_CHECK,
+  DISABLE_VERIFY,
 } from './constant';
 import { isObject } from '../tool/is';
 
 export type AutoConfig = {
-  appLaunch: boolean;
-  appTerminate: boolean;
-  appError: boolean;
-  pageShow: boolean;
-  pageHide: boolean;
-  pageShare: boolean;
-  pageFavorite: boolean;
+  appLaunch?: boolean;
+  appTerminate?: boolean;
+  appError?: boolean;
+  pageShow?: boolean;
+  pageHide?: boolean;
+  pageShare?: boolean;
+  pageFavorite?: boolean;
+  click?: boolean;
 };
 
 export type TOption = {
@@ -76,8 +86,20 @@ export type TOption = {
   max_batch_event?: number;
   max_storage_num?: number;
   enable_storage_only?: boolean;
+  enable_cache?: boolean;
 
   disable_sdk_monitor?: boolean;
+
+  verify?: string[] | null;
+
+  enable_encrypt?: boolean;
+  enable_skip_launch?: boolean;
+  enable_skip_network?: boolean;
+  enable_retry_unready?: boolean;
+  enable_trace?: boolean;
+  request_webid_number?: number;
+  disable_check?: boolean;
+  disable_verify?: boolean;
 };
 
 class Option {
@@ -124,6 +146,7 @@ class Option {
       buffer_interval: BUFFER_INTERVAL,
       buffer_number: BUFFER_NUMBER,
       enable_storage_only: ENABLE_STORAGE_ONLY,
+      enable_cache: ENABLE_CACHE,
 
       // filter - 未启
       enable_filter_list: ENABLE_FILTER_LIST,
@@ -140,6 +163,20 @@ class Option {
 
       // monitor
       disable_sdk_monitor: DISABLE_SDK_MONITOR,
+
+      verify: null,
+
+      // 加密
+      enable_encrypt: ENABLE_ENCRYPT,
+
+      // 包容模式
+      enable_skip_launch: ENABLE_SKIP_LAUNCH,
+      enable_skip_network: ENABLE_SKIP_NETWORK,
+      enable_retry_unready: ENABLE_RETRY_UNREADY,
+      enable_trace: ENABLE_TRACE,
+      request_webid_number: REQUEST_WEBID_NUMBER,
+      disable_check: DISABLE_CHECK,
+      disable_verify: DISABLE_VERIFY,
     };
     this.cloneOption = {
       ...this.option,

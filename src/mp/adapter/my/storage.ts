@@ -41,6 +41,23 @@ class Storage {
       }
     });
   }
+
+  info(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+        my.getStorageInfo({
+          success(res) {
+            resolve(res);
+          },
+          fail() {
+            reject(null);
+          },
+        });
+      } catch (e) {
+        reject(null);
+      }
+    });
+  }
 }
 
 export default new Storage();
